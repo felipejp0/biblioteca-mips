@@ -1,0 +1,321 @@
+.data
+codigos: .space 400
+status: .space 400
+qtd: .space 4
+titulo: .space 64
+
+menu: .asciiz "\n===== BIBLIOTECA =====\n1 - Cadastrar Livro\n2 - Emprestar Livro\n3 - Devolver Livro\n4 - Listar Livros\n5 - Sair\nOpcao: "
+msg_titulo: .asciiz "Digite o titulo do livro: "
+msg_codigo: .asciiz "Digite o codigo do livro: "
+msg_cad_ok: .asciiz "Livro cadastrado com sucesso! Codigo: "
+msg_emp_ok: .asciiz "Livro emprestado com sucesso!\n"
+msg_dev_ok: .asciiz "Livro devolvido com sucesso!\n"
+msg_nao_existe: .asciiz "Erro: livro nao encontrado!\n"
+msg_ja_emp: .asciiz "Erro: livro ja esta emprestado!\n"
+msg_ja_disp: .asciiz "Erro: livro ja esta disponivel!\n"
+msg_cod: .asciiz "Codigo: "
+msg_sep: .asciiz " | "
+msg_disp: .asciiz "Disponivel\n"
+msg_emp: .asciiz "Emprestado\n"
+msg_vazio: .asciiz "Nenhum livro cadastrado.\n"
+msg_invalida: .asciiz "Opcao invalida!\n"
+msg_sair: .asciiz "Encerrando o sistema...\n"
+quebra: .asciiz "\n"
+
+.text
+main:
+	# qtd = 0
+	la $t0, qtd
+	sw $zero, 0($t0)
+
+menu_loop:
+	la $a0, menu
+	jal ImprimirString
+
+	jal LerInt
+	move $t0, $v0      # opcao
+
+	li $t1, 1
+	beq $t0, $t1, opcao_cadastrar
+
+	li $t1, 2
+	beq $t0, $t1, opcao_emprestar
+
+	li $t1, 3
+	beq $t0, $t1, opcao_devolver
+
+	li $t1, 4
+	beq $t0, $t1, opcao_listar
+
+	li $t1, 5
+	beq $t0, $t1, opcao_sair
+
+	la $a0, msg_invalida
+	jal ImprimirString
+
+	j menu_loop
+
+
+opcao_cadastrar:
+	jal Cadastrar
+	j menu_loop
+
+opcao_emprestar:
+	jal Emprestar
+	j menu_loop
+
+opcao_devolver:
+	jal Devolver
+	j menu_loop
+
+opcao_listar:
+	jal Listar
+	j menu_loop
+
+opcao_sair:
+	la $a0, msg_sair
+	jal ImprimirString
+	jal Encerrar
+
+
+Cadastrar:
+	# carregar qtd
+	la $t0, qtd
+	lw $t1, 0($t0)        # $t1 = qtd
+
+	# se qtd >= 100, nao cadastra
+	li $t2, 100
+	bge $t1, $t2, fim_cadastrar
+
+	# pedir titulo
+	la $a0, msg_titulo
+	jal ImprimirString
+
+	# ler titulo temporario
+	la $a0, titulo
+	li $a1, 64
+	jal LerString
+
+	# offset = qtd * 4
+	li $t3, 4
+	mul $t4, $t1, $t3
+
+	# codigos[qtd] = qtd
+	la $t5, codigos
+	add $t5, $t5, $t4
+	sw $t1, 0($t5)
+
+	# status[qtd] = 0
+	la $t6, status
+	add $t6, $t6, $t4
+	sw $zero, 0($t6)
+
+	# mensagem de sucesso
+	la $a0, msg_cad_ok
+	jal ImprimirString
+
+	move $a0, $t1
+	jal ImprimirInt
+
+	la $a0, quebra
+	jal ImprimirString
+
+	# qtd++
+	addi $t1, $t1, 1
+	la $t0, qtd
+	sw $t1, 0($t0)
+
+fim_cadastrar:
+	jr $ra
+
+
+Emprestar:
+	# pedir codigo
+	la $a0, msg_codigo
+	jal ImprimirString
+
+	jal LerInt
+	move $t0, $v0        # codigo digitado
+
+	# carregar qtd
+	la $t1, qtd
+	lw $t2, 0($t1)       # qtd
+
+	# se codigo < 0, nao existe
+	blt $t0, $zero, livro_nao_existe_emp
+
+	# se codigo >= qtd, nao existe
+	bge $t0, $t2, livro_nao_existe_emp
+
+	# offset = codigo * 4
+	li $t3, 4
+	mul $t4, $t0, $t3
+
+	# endereco status[codigo]
+	la $t5, status
+	add $t5, $t5, $t4
+
+	# ler status
+	lw $t6, 0($t5)
+
+	# se status == 1, ja esta emprestado
+	li $t7, 1
+	beq $t6, $t7, livro_ja_emprestado
+
+	# status[codigo] = 1
+	sw $t7, 0($t5)
+
+	la $a0, msg_emp_ok
+	jal ImprimirString
+
+	j fim_emprestar
+
+livro_nao_existe_emp:
+	la $a0, msg_nao_existe
+	jal ImprimirString
+	j fim_emprestar
+
+livro_ja_emprestado:
+	la $a0, msg_ja_emp
+	jal ImprimirString
+
+fim_emprestar:
+	jr $ra
+
+
+Devolver:
+	# pedir codigo
+	la $a0, msg_codigo
+	jal ImprimirString
+
+	jal LerInt
+	move $t0, $v0        # codigo digitado
+
+	# carregar qtd
+	la $t1, qtd
+	lw $t2, 0($t1)       # qtd
+
+	# se codigo < 0, nao existe
+	blt $t0, $zero, livro_nao_existe_dev
+
+	# se codigo >= qtd, nao existe
+	bge $t0, $t2, livro_nao_existe_dev
+
+	# offset = codigo * 4
+	li $t3, 4
+	mul $t4, $t0, $t3
+
+	# endereco status[codigo]
+	la $t5, status
+	add $t5, $t5, $t4
+
+	# ler status
+	lw $t6, 0($t5)
+
+	# se status == 0, ja esta disponivel
+	beq $t6, $zero, livro_ja_disponivel
+
+	# status[codigo] = 0
+	sw $zero, 0($t5)
+
+	la $a0, msg_dev_ok
+	jal ImprimirString
+
+	j fim_devolver
+
+livro_nao_existe_dev:
+	la $a0, msg_nao_existe
+	jal ImprimirString
+	j fim_devolver
+
+livro_ja_disponivel:
+	la $a0, msg_ja_disp
+	jal ImprimirString
+
+fim_devolver:
+	jr $ra
+
+
+Listar:
+	# carregar qtd
+	la $t0, qtd
+	lw $t1, 0($t0)       # qtd
+
+	# se qtd == 0
+	beq $t1, $zero, lista_vazia
+
+	# i = 0
+	li $t2, 0
+
+loop_listar:
+	# se i >= qtd, fim
+	bge $t2, $t1, fim_listar
+
+	# imprimir "Codigo: "
+	la $a0, msg_cod
+	jal ImprimirString
+
+	# imprimir codigo i
+	move $a0, $t2
+	jal ImprimirInt
+
+	# imprimir separador
+	la $a0, msg_sep
+	jal ImprimirString
+
+	# offset = i * 4
+	li $t3, 4
+	mul $t4, $t2, $t3
+
+	# carregar status[i]
+	la $t5, status
+	add $t5, $t5, $t4
+	lw $t6, 0($t5)
+
+	# se status == 0, disponivel
+	beq $t6, $zero, imprimir_disponivel
+
+	# senao, emprestado
+	la $a0, msg_emp
+	jal ImprimirString
+	j proximo_livro
+
+imprimir_disponivel:
+	la $a0, msg_disp
+	jal ImprimirString
+
+proximo_livro:
+	addi $t2, $t2, 1
+	j loop_listar
+
+lista_vazia:
+	la $a0, msg_vazio
+	jal ImprimirString
+
+fim_listar:
+	jr $ra
+
+
+ImprimirString:
+	li $v0, 4
+	syscall
+	jr $ra
+
+ImprimirInt:
+	li $v0, 1
+	syscall
+	jr $ra
+
+LerInt:
+	li $v0, 5
+	syscall
+	jr $ra
+
+LerString:
+	li $v0, 8
+	syscall
+	jr $ra
+
+Encerrar:
+	li $v0, 10
+	syscall
